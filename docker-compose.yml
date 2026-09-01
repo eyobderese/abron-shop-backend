@@ -1,0 +1,47 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-abron}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-abron_shop}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      ACCESS_TOKEN_TTL: 15m
+      REFRESH_TOKEN_TTL_DAYS: 7
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
+      MEDIA_PUBLIC_URL: ${MEDIA_PUBLIC_URL}
+      MEDIA_LOCAL_DIR: /app/uploads
+      IMAGE_MAX_DIMENSION: ${IMAGE_MAX_DIMENSION:-1600}
+      IMAGE_WEBP_QUALITY: ${IMAGE_WEBP_QUALITY:-82}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./data/uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/v1/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-abron_shop}
+      POSTGRES_USER: ${POSTGRES_USER:-abron}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-abron} -d ${POSTGRES_DB:-abron_shop}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+uploads/
+data/
+*.tsbuildinfo
+*.log
+.env
+.env.production
+.DS_Store
+.idea/
+.vscode/

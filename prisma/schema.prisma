@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  SUPPORT
+}
+
+enum InquiryStatus {
+  new
+  contacted
+  closed
+}
+
+enum MediaType {
+  image
+  video
+}
+
+enum AdPlacement {
+  home_hero
+  home_strip
+  category_top
+}
+
+model User {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String           @unique
+  passwordHash String           @map("password_hash")
+  role         UserRole         @default(ADMIN)
+  isActive     Boolean          @default(true) @map("is_active")
+  lastLoginAt  DateTime?        @map("last_login_at") @db.Timestamptz(6)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sessions     RefreshSession[]
+
+  @@map("users")
+}
+
+model RefreshSession {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("refresh_sessions")
+}
+
+model Category {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId       String?         @map("parent_id") @db.Uuid
+  slug           String          @unique
+  nameEn         String          @map("name_en")
+  nameAm         String?         @map("name_am")
+  nameOr         String?         @map("name_or")
+  imageUrl       String?         @map("image_url")
+  sortOrder      Int             @default(0) @map("sort_order")
+  isActive       Boolean         @default(true) @map("is_active")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  parent         Category?       @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children       Category[]      @relation("CategoryTree")
+  products       Product[]
+  advertisements Advertisement[]
+
+  @@index([parentId, sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  nameAm         String?   @map("name_am")
+  nameOr         String?   @map("name_or")
+  description    String
+  descriptionAm  String?   @map("description_am")
+  descriptionOr  String?   @map("description_or")
+  categoryId     String?   @map("category_id") @db.Uuid
+  categoryLegacy String?   @map("category")
+  brand          String?
+  price          Decimal?  @db.Decimal(10, 2)
+  wasPrice       Decimal?  @map("was_price") @db.Decimal(10, 2)
+  images         String[]  @default([])
+  imageViews     Json      @default("[]") @map("image_views")
+  inStock        Boolean   @default(true) @map("in_stock")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  category       Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  inquiries      Inquiry[]
+
+  @@index([categoryId, createdAt(sort: Desc)])
+  @@index([inStock, createdAt(sort: Desc)])
+  @@map("products")
+}
+
+model Inquiry {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId   String?       @map("product_id") @db.Uuid
+  productName String        @map("product_name")
+  fullName    String        @map("full_name")
+  phone       String
+  telegram    String
+  message     String?
+  status      InquiryStatus @default(new)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  product     Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@map("inquiries")
+}
+
+model Advertisement {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String
+  mediaUrl   String      @map("media_url")
+  mediaType  MediaType   @default(image) @map("media_type")
+  posterUrl  String?     @map("poster_url")
+  linkUrl    String?     @map("link_url")
+  placement  AdPlacement
+  categoryId String?     @map("category_id") @db.Uuid
+  sortOrder  Int         @default(0) @map("sort_order")
+  isActive   Boolean     @default(true) @map("is_active")
+  startsAt   DateTime?   @map("starts_at") @db.Timestamptz(6)
+  endsAt     DateTime?   @map("ends_at") @db.Timestamptz(6)
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([placement, isActive, sortOrder])
+  @@index([categoryId])
+  @@map("advertisements")
+}
