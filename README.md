@@ -55,6 +55,12 @@ cp .env.production.example .env.production
 docker compose --env-file .env.production up -d --build
 ```
 
+After the first successful startup, create or update the administrator account:
+
+```bash
+docker compose --env-file .env.production exec api npm run prisma:seed
+```
+
 The backend Compose stack contains only the API and PostgreSQL. Uploaded media persists in `data/uploads`; database data persists in the named `postgres_data` volume.
 
 ## Independent deployment notes
