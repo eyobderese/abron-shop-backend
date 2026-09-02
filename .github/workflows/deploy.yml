@@ -1,0 +1,134 @@
+name: Deploy backend
+
+on:
+  push:
+    branches:
+      - deployment
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Type check
+        run: npm run lint
+
+      - name: Build backend
+        run: npm run build
+
+  deploy:
+    name: Deploy backend
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    concurrency:
+      group: abron-shop-backend-production
+      cancel-in-progress: false
+
+    environment:
+      name: production
+      url: https://api.abronshop.online/api/docs
+
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy on VPS
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_PORT: ${{ vars.VPS_PORT }}
+          VPS_USER: ${{ vars.VPS_USER }}
+        run: |
+          ssh \
+            -i ~/.ssh/id_ed25519 \
+            -p "$VPS_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=20 \
+            -o ServerAliveInterval=30 \
+            "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -Eeuo pipefail
+
+          exec 9>/home/deploy/.abron-shop-deploy.lock
+          flock -w 900 9
+
+          cd /opt/abron-shop-backend
+
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "Tracked files were changed directly on the VPS."
+            git status --short
+            exit 1
+          fi
+
+          git fetch --prune origin deployment
+          git switch deployment
+          git pull --ff-only origin deployment
+
+          docker compose --env-file .env.production config --quiet
+
+          docker compose --env-file .env.production \
+            up -d --build --remove-orphans
+
+          for attempt in $(seq 1 36); do
+            if curl -fsS \
+              http://127.0.0.1:3000/api/v1/health/ready \
+              > /dev/null; then
+              echo "Backend deployment succeeded."
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          echo "Backend health check failed."
+
+          docker compose --env-file .env.production \
+            logs --tail=100 api db
+
+          exit 1
+          REMOTE
+
+      - name: Verify public backend
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-delay 5 \
+            https://api.abronshop.online/api/v1/health/ready \
+            > /dev/null
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
