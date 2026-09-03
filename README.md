@@ -25,6 +25,8 @@ npm run start:dev
 
 The API runs at `http://localhost:3000`, Swagger documentation is at `/api/docs`, and readiness is available at `/api/v1/health/ready`.
 
+The database-driven XML sitemap is available at `/api/v1/seo/sitemap.xml`. Set `PUBLIC_SITE_URL` to the canonical frontend origin so every sitemap entry points to the storefront rather than the API. API responses include `X-Robots-Tag: noindex, nofollow` because API, health, and documentation URLs should not appear in search results.
+
 ## Frontend connection
 
 The frontend must set:
