@@ -1,4 +1,4 @@
-import { Controller, Get, Header } from '@nestjs/common';
+import { Controller, Get, Header, NotFoundException, Param, Redirect } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 
@@ -25,13 +25,34 @@ export class SeoController {
     private readonly config: ConfigService,
   ) {}
 
+  private siteUrl() {
+    return String(
+      this.config.get('PUBLIC_SITE_URL') ?? 'https://abronshop.online',
+    ).replace(/\/+$/, '');
+  }
+
+  @Get('product-redirect/:id')
+  @Redirect('https://abronshop.online', 301)
+  async redirectLegacyProduct(@Param('id') id: string) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      throw new NotFoundException();
+    }
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      select: { slug: true },
+    });
+    if (!product) throw new NotFoundException();
+    return {
+      url: `${this.siteUrl()}/products/${encodeURIComponent(product.slug)}`,
+      statusCode: 301,
+    };
+  }
+
   @Get('sitemap.xml')
   @Header('Content-Type', 'application/xml; charset=utf-8')
   @Header('Cache-Control', 'public, max-age=300, s-maxage=3600')
   async sitemap() {
-    const siteUrl = String(
-      this.config.get('PUBLIC_SITE_URL') ?? 'https://abronshop.online',
-    ).replace(/\/+$/, '');
+    const siteUrl = this.siteUrl();
 
     const [categories, products] = await Promise.all([
       this.prisma.category.findMany({
@@ -40,7 +61,7 @@ export class SeoController {
         orderBy: { updatedAt: 'desc' },
       }),
       this.prisma.product.findMany({
-        select: { id: true, updatedAt: true },
+        select: { slug: true, updatedAt: true },
         orderBy: { updatedAt: 'desc' },
       }),
     ]);
@@ -56,7 +77,7 @@ export class SeoController {
       ),
       ...products.map((product) =>
         sitemapEntry(
-          `${siteUrl}/product/${encodeURIComponent(product.id)}`,
+          `${siteUrl}/products/${encodeURIComponent(product.slug)}`,
           product.updatedAt,
         ),
       ),

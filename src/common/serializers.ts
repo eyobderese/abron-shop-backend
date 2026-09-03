@@ -17,6 +17,7 @@ export function categoryJson(row: any) {
 export function productJson(row: any) {
   return {
     id: row.id,
+    slug: row.slug,
     name: row.name,
     name_am: row.nameAm,
     name_or: row.nameOr,

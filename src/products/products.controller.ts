@@ -1,9 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { productJson } from '../common/serializers';
 import { PrismaService } from '../database/prisma.service';
 import { CreateProductDto, UpdateProductDto } from './products.dto';
+import { uniqueProductSlug } from './product-slug';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function productData(dto: CreateProductDto | UpdateProductDto) {
   return {
@@ -54,9 +57,13 @@ export class ProductsController {
     return this.list(query);
   }
 
-  @Get('products/:id')
-  async getOne(@Param('id') id: string) {
-    const row = await this.prisma.product.findUniqueOrThrow({ where: { id }, include: { category: true } });
+  @Get('products/:identifier')
+  async getOne(@Param('identifier') identifier: string) {
+    const where = UUID_PATTERN.test(identifier)
+      ? { id: identifier }
+      : { slug: identifier.toLowerCase() };
+    const row = await this.prisma.product.findUnique({ where, include: { category: true } });
+    if (!row) throw new NotFoundException('Product not found');
     return productJson(row);
   }
 
@@ -69,8 +76,23 @@ export class ProductsController {
   @Post('admin/products')
   @UseGuards(JwtAuthGuard)
   async create(@Body() dto: CreateProductDto) {
-    const row = await this.prisma.product.create({ data: productData(dto) as any, include: { category: true } });
-    return productJson(row);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const slug = await uniqueProductSlug(this.prisma, dto.name);
+      try {
+        const row = await this.prisma.product.create({
+          data: { ...productData(dto), slug } as any,
+          include: { category: true },
+        });
+        return productJson(row);
+      } catch (error) {
+        const slugConflict =
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          String(error.meta?.target ?? '').includes('slug');
+        if (!slugConflict) throw error;
+      }
+    }
+    throw new ConflictException('Could not reserve a unique product URL; please try again');
   }
 
   @Patch('admin/products/:id')

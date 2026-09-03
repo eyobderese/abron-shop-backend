@@ -80,6 +80,7 @@ model Category {
 
 model Product {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug           String    @unique
   name           String
   nameAm         String?   @map("name_am")
   nameOr         String?   @map("name_or")
