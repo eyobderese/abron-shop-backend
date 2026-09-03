@@ -1,5 +1,11 @@
 import { PartialType } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsNumber, IsObject, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
+
+export class ProductImageViewDto {
+  @IsString() @MaxLength(2000) url: string;
+  @IsString() @MaxLength(80) label: string;
+}
 
 export class CreateProductDto {
   @IsString() @MaxLength(240) name: string;
@@ -13,7 +19,8 @@ export class CreateProductDto {
   @IsOptional() @IsNumber() @Min(0) price?: number | null;
   @IsOptional() @IsNumber() @Min(0) was_price?: number | null;
   @IsArray() images: string[];
-  @IsArray() image_views: Array<{ url: string; label: string }>;
+  @IsArray() @ValidateNested({ each: true }) @Type(() => ProductImageViewDto)
+  image_views: ProductImageViewDto[];
   @IsBoolean() in_stock: boolean;
 }
 

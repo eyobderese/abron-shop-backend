@@ -15,6 +15,22 @@ export function categoryJson(row: any) {
 }
 
 export function productJson(row: any) {
+  const validViews = Array.isArray(row.imageViews)
+    ? row.imageViews.filter(
+        (view: unknown) =>
+          view &&
+          !Array.isArray(view) &&
+          typeof view === 'object' &&
+          typeof (view as { url?: unknown }).url === 'string',
+      )
+    : [];
+  const imageViews = validViews.length > 0
+    ? validViews
+    : (row.images ?? []).map((url: string, index: number) => ({
+        url,
+        label: ['front', 'back', 'side', 'detail', 'lifestyle'][index] ?? 'other',
+      }));
+
   return {
     id: row.id,
     slug: row.slug,
@@ -30,7 +46,7 @@ export function productJson(row: any) {
     price: row.price,
     was_price: row.wasPrice,
     images: row.images,
-    image_views: row.imageViews,
+    image_views: imageViews,
     in_stock: row.inStock,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
