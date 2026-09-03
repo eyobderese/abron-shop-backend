@@ -9,6 +9,7 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { resolve } from 'node:path';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { FastifyInstance } from 'fastify';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -17,6 +18,12 @@ async function bootstrap() {
     new FastifyAdapter({ logger: true }),
   );
   const config = app.get(ConfigService);
+  const fastify = app.getHttpAdapter().getInstance() as FastifyInstance;
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (!request.url.startsWith('/api/v1/seo/sitemap.xml')) {
+      reply.header('X-Robots-Tag', 'noindex, nofollow');
+    }
+  });
   await app.register(cookie);
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
