@@ -27,6 +27,8 @@ The API runs at `http://localhost:3000`, Swagger documentation is at `/api/docs`
 
 The database-driven XML sitemap is available at `/api/v1/seo/sitemap.xml`. Set `PUBLIC_SITE_URL` to the canonical frontend origin so every sitemap entry points to the storefront rather than the API. API responses include `X-Robots-Tag: noindex, nofollow` because API, health, and documentation URLs should not appear in search results.
 
+Products retain UUID primary keys internally and also have permanent, unique URL slugs. Slugs are generated from the English name when a product is created and do not change automatically when its name is edited. Public product lookup accepts either a slug or a legacy UUID.
+
 ## Frontend connection
 
 The frontend must set:
@@ -64,6 +66,12 @@ docker compose --env-file .env.production exec api npm run prisma:seed
 ```
 
 The backend Compose stack contains only the API and PostgreSQL. Uploaded media persists in `data/uploads`; database data persists in the named `postgres_data` volume.
+
+### Product-slug migration
+
+Migration `202609030001_product_slugs` adds the required unique `products.slug` column and backfills existing rows with readable values. Name collisions receive numeric suffixes such as `nike-shoe-2`. The container runs `prisma migrate deploy` before starting the API, so normal backend deployment applies this migration automatically.
+
+Before deploying this migration, create a PostgreSQL backup. Deploy the backend before the frontend: the updated backend remains compatible with the old UUID-based frontend, while the updated frontend requires product slugs in API responses.
 
 ## Independent deployment notes
 

@@ -128,6 +128,14 @@ jobs:
             --retry-delay 5 \
             https://api.abronshop.online/api/v1/health/ready \
             > /dev/null
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-delay 5 \
+            https://api.abronshop.online/api/v1/seo/sitemap.xml \
+            > /dev/null
 
       - name: Remove SSH key
         if: always()
