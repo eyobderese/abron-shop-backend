@@ -1,4 +1,6 @@
 -- Add permanent, human-readable product URLs without changing internal UUIDs.
+BEGIN;
+
 ALTER TABLE "products" ADD COLUMN "slug" TEXT;
 
 -- Backfill existing products. Duplicate or colliding names receive stable
@@ -49,3 +51,5 @@ END $$;
 
 ALTER TABLE "products" ALTER COLUMN "slug" SET NOT NULL;
 CREATE UNIQUE INDEX "products_slug_key" ON "products"("slug");
+
+COMMIT;
