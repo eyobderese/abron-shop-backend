@@ -30,6 +30,9 @@ async function bootstrap() {
   await app.register(fastifyStatic, {
     root: resolve(config.get('MEDIA_LOCAL_DIR') ?? 'uploads'),
     prefix: '/uploads/',
+    setHeaders: (reply) => {
+      reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
   });
   app.enableCors({
     origin: (config.get('FRONTEND_ORIGIN') ?? 'http://localhost:5173').split(',').map((v: string) => v.trim()),
