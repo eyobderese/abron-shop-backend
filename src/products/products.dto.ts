@@ -1,6 +1,7 @@
 import { PartialType } from '@nestjs/swagger';
+import { ProductCurrency } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
 
 export class ProductImageViewDto {
   @IsString() @MaxLength(2000) url: string;
@@ -18,6 +19,7 @@ export class CreateProductDto {
   @IsOptional() @IsString() @MaxLength(160) brand?: string | null;
   @IsOptional() @IsNumber() @Min(0) price?: number | null;
   @IsOptional() @IsNumber() @Min(0) was_price?: number | null;
+  @IsOptional() @IsEnum(ProductCurrency) currency?: ProductCurrency;
   @IsArray() images: string[];
   @IsArray() @ValidateNested({ each: true }) @Type(() => ProductImageViewDto)
   image_views: ProductImageViewDto[];

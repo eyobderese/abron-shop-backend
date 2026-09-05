@@ -20,6 +20,7 @@ function productData(dto: CreateProductDto | UpdateProductDto) {
     ...(dto.brand !== undefined && { brand: dto.brand || null }),
     ...(dto.price !== undefined && { price: dto.price }),
     ...(dto.was_price !== undefined && { wasPrice: dto.was_price }),
+    ...(dto.currency !== undefined && { currency: dto.currency }),
     ...(dto.images !== undefined && { images: dto.images }),
     ...(dto.image_views !== undefined && { imageViews: dto.image_views as any }),
     ...(dto.in_stock !== undefined && { inStock: dto.in_stock }),

@@ -29,6 +29,8 @@ The database-driven XML sitemap is available at `/api/v1/seo/sitemap.xml`. Set `
 
 Products retain UUID primary keys internally and also have permanent, unique URL slugs. Slugs are generated from the English name when a product is created and do not change automatically when its name is edited. Public product lookup accepts either a slug or a legacy UUID.
 
+Product prices support Ethiopian birr (`ETB`) and US dollars (`USD`). New products and migrated existing products default to `ETB`; the selected currency is returned with every product response.
+
 ## Frontend connection
 
 The frontend must set:
@@ -72,6 +74,10 @@ The backend Compose stack contains only the API and PostgreSQL. Uploaded media p
 Migration `202609030001_product_slugs` adds the required unique `products.slug` column and backfills existing rows with readable values. Name collisions receive numeric suffixes such as `nike-shoe-2`. The container runs `prisma migrate deploy` before starting the API, so normal backend deployment applies this migration automatically.
 
 Before deploying this migration, create a PostgreSQL backup. Deploy the backend before the frontend: the updated backend remains compatible with the old UUID-based frontend, while the updated frontend requires product slugs in API responses.
+
+### Product-currency migration
+
+Migration `202609050001_product_currency` adds an `ETB`/`USD` currency to every product. Existing products are marked as `ETB`, and PostgreSQL defaults new records to `ETB`. Deploy the backend before the currency-aware frontend because the older backend rejects unknown request fields.
 
 ## Independent deployment notes
 
