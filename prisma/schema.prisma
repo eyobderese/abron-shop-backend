@@ -30,6 +30,11 @@ enum AdPlacement {
   category_top
 }
 
+enum ProductCurrency {
+  ETB
+  USD
+}
+
 model User {
   id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String           @unique
@@ -79,25 +84,26 @@ model Category {
 }
 
 model Product {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug           String    @unique
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug           String          @unique
   name           String
-  nameAm         String?   @map("name_am")
-  nameOr         String?   @map("name_or")
+  nameAm         String?         @map("name_am")
+  nameOr         String?         @map("name_or")
   description    String
-  descriptionAm  String?   @map("description_am")
-  descriptionOr  String?   @map("description_or")
-  categoryId     String?   @map("category_id") @db.Uuid
-  categoryLegacy String?   @map("category")
+  descriptionAm  String?         @map("description_am")
+  descriptionOr  String?         @map("description_or")
+  categoryId     String?         @map("category_id") @db.Uuid
+  categoryLegacy String?         @map("category")
   brand          String?
-  price          Decimal?  @db.Decimal(10, 2)
-  wasPrice       Decimal?  @map("was_price") @db.Decimal(10, 2)
-  images         String[]  @default([])
-  imageViews     Json      @default("[]") @map("image_views")
-  inStock        Boolean   @default(true) @map("in_stock")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  category       Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  price          Decimal?        @db.Decimal(10, 2)
+  wasPrice       Decimal?        @map("was_price") @db.Decimal(10, 2)
+  currency       ProductCurrency @default(ETB)
+  images         String[]        @default([])
+  imageViews     Json            @default("[]") @map("image_views")
+  inStock        Boolean         @default(true) @map("in_stock")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  category       Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   inquiries      Inquiry[]
 
   @@index([categoryId, createdAt(sort: Desc)])

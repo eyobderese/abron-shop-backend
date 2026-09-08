@@ -1,7 +1,8 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { categoryJson } from '../common/serializers';
+import { MediaService } from '../media/media.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './categories.dto';
 
 function categoryData(dto: CreateCategoryDto | UpdateCategoryDto) {
@@ -19,7 +20,10 @@ function categoryData(dto: CreateCategoryDto | UpdateCategoryDto) {
 
 @Controller()
 export class CategoriesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly media: MediaService,
+  ) {}
 
   @Get('categories')
   async listPublic() {
@@ -46,6 +50,11 @@ export class CategoriesController {
   @Patch('admin/categories/:id')
   @UseGuards(JwtAuthGuard)
   async update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
+    const existing = await this.prisma.category.findUnique({
+      where: { id },
+      select: { imageUrl: true },
+    });
+    if (!existing) throw new NotFoundException('Category not found');
     if (dto.parent_id === id) throw new BadRequestException('A category cannot be its own parent');
     if (dto.parent_id) {
       let current: string | null = dto.parent_id;
@@ -58,13 +67,34 @@ export class CategoriesController {
       }
     }
     const row = await this.prisma.category.update({ where: { id }, data: categoryData(dto) });
+    await this.media.removeUnreferencedUrls([existing.imageUrl]);
     return categoryJson(row);
   }
 
   @Delete('admin/categories/:id')
   @UseGuards(JwtAuthGuard)
   async remove(@Param('id') id: string) {
+    const categories = await this.prisma.category.findMany({
+      select: { id: true, parentId: true, imageUrl: true },
+    });
+    if (!categories.some((category) => category.id === id)) {
+      throw new NotFoundException('Category not found');
+    }
+    const descendantIds = new Set([id]);
+    let previousSize = 0;
+    while (descendantIds.size !== previousSize) {
+      previousSize = descendantIds.size;
+      for (const category of categories) {
+        if (category.parentId && descendantIds.has(category.parentId)) {
+          descendantIds.add(category.id);
+        }
+      }
+    }
+    const mediaUrls = categories
+      .filter((category) => descendantIds.has(category.id))
+      .map((category) => category.imageUrl);
     await this.prisma.category.delete({ where: { id } });
+    await this.media.removeUnreferencedUrls(mediaUrls);
     return { success: true };
   }
 }

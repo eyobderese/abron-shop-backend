@@ -3,10 +3,23 @@ import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { productJson } from '../common/serializers';
 import { PrismaService } from '../database/prisma.service';
+import { MediaService } from '../media/media.service';
 import { CreateProductDto, UpdateProductDto } from './products.dto';
 import { uniqueProductSlug } from './product-slug';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function productMediaUrls(row: { images: string[]; imageViews: unknown }) {
+  const viewUrls = Array.isArray(row.imageViews)
+    ? row.imageViews.flatMap((view) =>
+        view && typeof view === 'object' && !Array.isArray(view) &&
+        typeof (view as { url?: unknown }).url === 'string'
+          ? [(view as { url: string }).url]
+          : [],
+      )
+    : [];
+  return [...row.images, ...viewUrls];
+}
 
 function productData(dto: CreateProductDto | UpdateProductDto) {
   return {
@@ -20,6 +33,7 @@ function productData(dto: CreateProductDto | UpdateProductDto) {
     ...(dto.brand !== undefined && { brand: dto.brand || null }),
     ...(dto.price !== undefined && { price: dto.price }),
     ...(dto.was_price !== undefined && { wasPrice: dto.was_price }),
+    ...(dto.currency !== undefined && { currency: dto.currency }),
     ...(dto.images !== undefined && { images: dto.images }),
     ...(dto.image_views !== undefined && { imageViews: dto.image_views as any }),
     ...(dto.in_stock !== undefined && { inStock: dto.in_stock }),
@@ -28,7 +42,10 @@ function productData(dto: CreateProductDto | UpdateProductDto) {
 
 @Controller()
 export class ProductsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly media: MediaService,
+  ) {}
 
   private async list(query: { categoryIds?: string; search?: string; limit?: string }) {
     const categoryIds = query.categoryIds?.split(',').filter(Boolean) ?? [];
@@ -98,14 +115,26 @@ export class ProductsController {
   @Patch('admin/products/:id')
   @UseGuards(JwtAuthGuard)
   async update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
+    const existing = await this.prisma.product.findUnique({
+      where: { id },
+      select: { images: true, imageViews: true },
+    });
+    if (!existing) throw new NotFoundException('Product not found');
     const row = await this.prisma.product.update({ where: { id }, data: productData(dto), include: { category: true } });
+    await this.media.removeUnreferencedUrls(productMediaUrls(existing));
     return productJson(row);
   }
 
   @Delete('admin/products/:id')
   @UseGuards(JwtAuthGuard)
   async remove(@Param('id') id: string) {
+    const existing = await this.prisma.product.findUnique({
+      where: { id },
+      select: { images: true, imageViews: true },
+    });
+    if (!existing) throw new NotFoundException('Product not found');
     await this.prisma.product.delete({ where: { id } });
+    await this.media.removeUnreferencedUrls(productMediaUrls(existing));
     return { success: true };
   }
 }

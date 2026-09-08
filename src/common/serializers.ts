@@ -45,6 +45,7 @@ export function productJson(row: any) {
     brand: row.brand,
     price: row.price,
     was_price: row.wasPrice,
+    currency: row.currency ?? 'ETB',
     images: row.images,
     image_views: imageViews,
     in_stock: row.inStock,
