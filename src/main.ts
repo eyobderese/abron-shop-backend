@@ -37,6 +37,7 @@ async function bootstrap() {
   app.enableCors({
     origin: (config.get('FRONTEND_ORIGIN') ?? 'http://localhost:5173').split(',').map((v: string) => v.trim()),
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({

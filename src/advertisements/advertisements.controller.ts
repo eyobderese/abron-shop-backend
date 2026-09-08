@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { adJson } from '../common/serializers';
 import { PrismaService } from '../database/prisma.service';
+import { MediaService } from '../media/media.service';
 import { CreateAdvertisementDto, UpdateAdvertisementDto } from './advertisements.dto';
 
 function adData(dto: CreateAdvertisementDto | UpdateAdvertisementDto) {
@@ -32,7 +33,10 @@ function validateWindow(dto: CreateAdvertisementDto | UpdateAdvertisementDto) {
 
 @Controller()
 export class AdvertisementsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly media: MediaService,
+  ) {}
 
   @Get('advertisements')
   async listPublic(@Query('placement') placement?: string, @Query('categoryId') categoryId?: string) {
@@ -71,14 +75,26 @@ export class AdvertisementsController {
   @UseGuards(JwtAuthGuard)
   async update(@Param('id') id: string, @Body() dto: UpdateAdvertisementDto) {
     validateWindow(dto);
+    const existing = await this.prisma.advertisement.findUnique({
+      where: { id },
+      select: { mediaUrl: true, posterUrl: true },
+    });
+    if (!existing) throw new NotFoundException('Advertisement not found');
     const row = await this.prisma.advertisement.update({ where: { id }, data: adData(dto) });
+    await this.media.removeUnreferencedUrls([existing.mediaUrl, existing.posterUrl]);
     return adJson(row);
   }
 
   @Delete('admin/advertisements/:id')
   @UseGuards(JwtAuthGuard)
   async remove(@Param('id') id: string) {
+    const existing = await this.prisma.advertisement.findUnique({
+      where: { id },
+      select: { mediaUrl: true, posterUrl: true },
+    });
+    if (!existing) throw new NotFoundException('Advertisement not found');
     await this.prisma.advertisement.delete({ where: { id } });
+    await this.media.removeUnreferencedUrls([existing.mediaUrl, existing.posterUrl]);
     return { success: true };
   }
 }
