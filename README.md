@@ -31,6 +31,8 @@ Products retain UUID primary keys internally and also have permanent, unique URL
 
 Product prices support Ethiopian birr (`ETB`) and US dollars (`USD`). New products and migrated existing products default to `ETB`; the selected currency is returned with every product response.
 
+Administrators can generate reviewable Amharic and Afaan Oromo product-translation drafts with Google Cloud Translation Basic. Configure `GOOGLE_TRANSLATE_API_KEY` only on the backend; the browser never receives it. The draft endpoint does not write to PostgreSQL. Translations are stored only after the administrator reviews them and submits the normal product form.
+
 ## Frontend connection
 
 The frontend must set:
@@ -87,3 +89,4 @@ Migration `202609050001_product_currency` adds an `ETB`/`USD` currency to every 
 - Set `MEDIA_PUBLIC_URL` to the public backend media origin, for example `https://api.shop.example.com/uploads`.
 - Set `FRONTEND_ORIGIN` to the separately deployed frontend URL.
 - Never commit `.env` or `.env.production`.
+- Restrict the Google API key to the Cloud Translation API and the VPS public IP address. Rotate it periodically and never expose it through a frontend `VITE_*` variable.

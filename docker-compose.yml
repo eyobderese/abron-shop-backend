@@ -18,6 +18,7 @@ services:
       MEDIA_LOCAL_DIR: /app/uploads
       IMAGE_MAX_DIMENSION: ${IMAGE_MAX_DIMENSION:-1600}
       IMAGE_WEBP_QUALITY: ${IMAGE_WEBP_QUALITY:-82}
+      GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY:-}
     ports:
       - "${PORT:-3000}:3000"
     volumes:
