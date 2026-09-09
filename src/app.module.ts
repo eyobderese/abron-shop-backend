@@ -12,6 +12,7 @@ import { AdvertisementsModule } from './advertisements/advertisements.module';
 import { MediaModule } from './media/media.module';
 import { HealthController } from './health/health.controller';
 import { SeoModule } from './seo/seo.module';
+import { TranslationsModule } from './translations/translations.module';
 
 function validate(config: Record<string, unknown>) {
   const required = ['DATABASE_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MEDIA_PUBLIC_URL'];
@@ -36,6 +37,7 @@ function validate(config: Record<string, unknown>) {
     AdvertisementsModule,
     MediaModule,
     SeoModule,
+    TranslationsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
