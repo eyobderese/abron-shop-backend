@@ -81,6 +81,39 @@ Before deploying this migration, create a PostgreSQL backup. Deploy the backend 
 
 Migration `202609050001_product_currency` adds an `ETB`/`USD` currency to every product. Existing products are marked as `ETB`, and PostgreSQL defaults new records to `ETB`. Deploy the backend before the currency-aware frontend because the older backend rejects unknown request fields.
 
+### Product-size migration
+
+Migration `202609130001_product_sizes` adds the product size type, its available
+sizes, and the size selected on an inquiry. Existing products default to no size
+selection and existing inquiries keep a null selected size. The Docker container
+applies this migration automatically before starting the updated API.
+
+Deploy the backend before the size-aware frontend. After both deployments, edit
+each applicable product in the admin area, select its size type and available
+sizes, and save it. Products left as **No selectable size** continue to accept
+inquiries without asking the shopper for a size.
+
+### Related-product recommendations
+
+The public `GET /api/v1/products/:identifier/related` endpoint ranks products by
+matching brand first, similar model/name words second, and category third. Common
+color words are ignored during name comparison so color variants stay close
+together. Migration `202609130002_product_recommendations` adds an index for the
+brand lookup and is applied automatically during backend deployment.
+
+### Product-family and color-variant migration
+
+Migration `202609130003_product_color_variants` groups separate product records under
+one brand and model code. Every color remains an independent product with its own
+URL, images, price, stock status, and available sizes. Existing products remain
+standalone until an administrator assigns a model code and color. Inquiry rows
+store a color snapshot so the selected color remains visible if the product is
+later edited or deleted.
+
+Deploy the backend before the frontend. After deployment, edit an existing
+product and add its brand, model code, family name, and color. Use **Duplicate as
+another color** to create its other colors without copying the original images.
+
 ## Independent deployment notes
 
 - Expose port 3000 through your platform or reverse proxy.

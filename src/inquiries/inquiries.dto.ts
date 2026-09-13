@@ -6,6 +6,7 @@ export class CreateInquiryDto {
   @IsString() @MaxLength(160) full_name: string;
   @IsString() @MaxLength(60) phone: string;
   @IsString() @MaxLength(100) telegram: string;
+  @IsOptional() @IsString() @MaxLength(40) selected_size?: string | null;
   @IsOptional() @IsString() @MaxLength(2000) message?: string | null;
 }
 

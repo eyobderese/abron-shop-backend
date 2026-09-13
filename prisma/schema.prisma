@@ -35,6 +35,13 @@ enum ProductCurrency {
   USD
 }
 
+enum ProductSizeType {
+  NONE
+  SHOE_EU
+  CLOTHING
+  CUSTOM
+}
+
 model User {
   id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String           @unique
@@ -83,6 +90,20 @@ model Category {
   @@map("categories")
 }
 
+model ProductFamily {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String    @unique
+  brand       String
+  modelCode   String    @map("model_code")
+  displayName String    @map("display_name")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  products    Product[]
+
+  @@index([brand])
+  @@map("product_families")
+}
+
 model Product {
   id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   slug           String          @unique
@@ -95,34 +116,47 @@ model Product {
   categoryId     String?         @map("category_id") @db.Uuid
   categoryLegacy String?         @map("category")
   brand          String?
+  familyId       String?         @map("family_id") @db.Uuid
+  colorName      String?         @map("color_name")
+  colorCode      String?         @map("color_code")
+  colorHex       String?         @map("color_hex")
+  variantKey     String?         @map("variant_key")
+  variantSort    Int             @default(0) @map("variant_sort_order")
   price          Decimal?        @db.Decimal(10, 2)
   wasPrice       Decimal?        @map("was_price") @db.Decimal(10, 2)
   currency       ProductCurrency @default(ETB)
+  sizeType       ProductSizeType @default(NONE) @map("size_type")
+  sizes          String[]        @default([])
   images         String[]        @default([])
   imageViews     Json            @default("[]") @map("image_views")
   inStock        Boolean         @default(true) @map("in_stock")
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   category       Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  family         ProductFamily?  @relation(fields: [familyId], references: [id], onDelete: SetNull)
   inquiries      Inquiry[]
 
+  @@unique([familyId, variantKey])
   @@index([categoryId, createdAt(sort: Desc)])
+  @@index([brand])
   @@index([inStock, createdAt(sort: Desc)])
   @@map("products")
 }
 
 model Inquiry {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productId   String?       @map("product_id") @db.Uuid
-  productName String        @map("product_name")
-  fullName    String        @map("full_name")
-  phone       String
-  telegram    String
-  message     String?
-  status      InquiryStatus @default(new)
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  product     Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId     String?       @map("product_id") @db.Uuid
+  productName   String        @map("product_name")
+  fullName      String        @map("full_name")
+  phone         String
+  telegram      String
+  selectedSize  String?       @map("selected_size")
+  selectedColor String?       @map("selected_color")
+  message       String?
+  status        InquiryStatus @default(new)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  product       Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt(sort: Desc)])
   @@map("inquiries")
