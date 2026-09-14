@@ -72,7 +72,7 @@ function validateSizeConfiguration(sizeType: ProductSizeType, sizes: string[]) {
 
 function productData(dto: CreateProductDto | UpdateProductDto) {
   return {
-    ...(dto.name !== undefined && { name: dto.name }),
+    ...(dto.name !== undefined && { name: dto.name.trim() }),
     ...(dto.name_am !== undefined && { nameAm: dto.name_am || null }),
     ...(dto.name_or !== undefined && { nameOr: dto.name_or || null }),
     ...(dto.description !== undefined && { description: dto.description }),
@@ -135,9 +135,29 @@ export class ProductsController {
       ...(categoryIds.length && { categoryId: { in: categoryIds } }),
       ...(tokens.length && {
         AND: tokens.map((token) => ({
-          OR: ['name', 'nameAm', 'nameOr', 'description', 'descriptionAm', 'descriptionOr'].map((field) => ({
-            [field]: { contains: token, mode: 'insensitive' },
-          })),
+          OR: [
+            ...[
+              'name',
+              'nameAm',
+              'nameOr',
+              'brand',
+              'description',
+              'descriptionAm',
+              'descriptionOr',
+            ].map((field) => ({
+              [field]: { contains: token, mode: 'insensitive' },
+            })),
+            {
+              family: {
+                is: {
+                  OR: [
+                    { modelCode: { contains: token, mode: 'insensitive' } },
+                    { displayName: { contains: token, mode: 'insensitive' } },
+                  ],
+                },
+              },
+            },
+          ],
         })),
       }),
     };
@@ -306,6 +326,9 @@ export class ProductsController {
       normalizedSizes(dto.sizes),
     );
     const brand = dto.brand?.trim() || null;
+    if (!brand) {
+      throw new BadRequestException('Brand is required');
+    }
     const modelCode = dto.model_code?.trim() || null;
     if (modelCode && !dto.family_name?.trim()) {
       throw new BadRequestException('Model/family name is required with a model code');
@@ -387,6 +410,9 @@ export class ProductsController {
     const brand = dto.brand === undefined
       ? existing.brand
       : dto.brand?.trim() || null;
+    if (!brand) {
+      throw new BadRequestException('Brand is required');
+    }
     const modelCode = dto.model_code === undefined
       ? existing.family?.modelCode ?? null
       : dto.model_code?.trim() || null;

@@ -1,7 +1,7 @@
 import { PartialType } from '@nestjs/swagger';
 import { ProductCurrency, ProductSizeType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 
 export class ProductImageViewDto {
   @IsString() @MaxLength(2000) url: string;
@@ -9,14 +9,14 @@ export class ProductImageViewDto {
 }
 
 export class CreateProductDto {
-  @IsString() @MaxLength(240) name: string;
+  @IsString() @IsNotEmpty() @Matches(/\S/) @MaxLength(240) name: string;
   @IsOptional() @IsString() @MaxLength(240) name_am?: string | null;
   @IsOptional() @IsString() @MaxLength(240) name_or?: string | null;
   @IsString() @MaxLength(20_000) description: string;
   @IsOptional() @IsString() @MaxLength(20_000) description_am?: string | null;
   @IsOptional() @IsString() @MaxLength(20_000) description_or?: string | null;
   @IsUUID() category_id: string;
-  @IsOptional() @IsString() @MaxLength(160) brand?: string | null;
+  @IsString() @IsNotEmpty() @Matches(/\S/) @MaxLength(160) brand: string;
   @IsOptional() @IsString() @MaxLength(80) model_code?: string | null;
   @IsOptional() @IsString() @MaxLength(240) family_name?: string | null;
   @IsOptional() @IsString() @MaxLength(80) color_name?: string | null;
