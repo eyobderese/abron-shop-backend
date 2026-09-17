@@ -108,6 +108,7 @@ model Product {
   id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   slug           String          @unique
   name           String
+  productType    String          @default("Product") @map("product_type")
   nameAm         String?         @map("name_am")
   nameOr         String?         @map("name_or")
   description    String

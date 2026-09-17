@@ -35,6 +35,7 @@ export function productJson(row: any) {
     id: row.id,
     slug: row.slug,
     name: row.name,
+    product_type: row.productType ?? 'Product',
     name_am: row.nameAm,
     name_or: row.nameOr,
     description: row.description,
