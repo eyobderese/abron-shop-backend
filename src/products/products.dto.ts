@@ -10,6 +10,7 @@ export class ProductImageViewDto {
 
 export class CreateProductDto {
   @IsString() @IsNotEmpty() @Matches(/\S/) @MaxLength(240) name: string;
+  @IsString() @IsNotEmpty() @Matches(/\S/) @MaxLength(120) product_type: string;
   @IsOptional() @IsString() @MaxLength(240) name_am?: string | null;
   @IsOptional() @IsString() @MaxLength(240) name_or?: string | null;
   @IsString() @MaxLength(20_000) description: string;

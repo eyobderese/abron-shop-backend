@@ -11,11 +11,22 @@ function xmlEscape(value: string) {
     .replace(/'/g, '&apos;');
 }
 
-function sitemapEntry(location: string, lastModified?: Date) {
+function sitemapEntry(
+  location: string,
+  lastModified?: Date,
+  imageLocations: string[] = [],
+) {
   const lastmod = lastModified
     ? `<lastmod>${lastModified.toISOString()}</lastmod>`
     : '';
-  return `<url><loc>${xmlEscape(location)}</loc>${lastmod}</url>`;
+  const images = imageLocations
+    .filter(Boolean)
+    .slice(0, 1000)
+    .map((imageLocation) =>
+      `<image:image><image:loc>${xmlEscape(imageLocation)}</image:loc></image:image>`,
+    )
+    .join('');
+  return `<url><loc>${xmlEscape(location)}</loc>${lastmod}${images}</url>`;
 }
 
 @Controller('seo')
@@ -57,11 +68,11 @@ export class SeoController {
     const [categories, products] = await Promise.all([
       this.prisma.category.findMany({
         where: { isActive: true },
-        select: { slug: true, updatedAt: true },
+        select: { slug: true, updatedAt: true, imageUrl: true },
         orderBy: { updatedAt: 'desc' },
       }),
       this.prisma.product.findMany({
-        select: { slug: true, updatedAt: true },
+        select: { slug: true, updatedAt: true, images: true },
         orderBy: { updatedAt: 'desc' },
       }),
     ]);
@@ -73,19 +84,21 @@ export class SeoController {
         sitemapEntry(
           `${siteUrl}/category/${encodeURIComponent(category.slug)}`,
           category.updatedAt,
+          category.imageUrl ? [category.imageUrl] : [],
         ),
       ),
       ...products.map((product) =>
         sitemapEntry(
           `${siteUrl}/products/${encodeURIComponent(product.slug)}`,
           product.updatedAt,
+          product.images,
         ),
       ),
     ];
 
     return [
       '<?xml version="1.0" encoding="UTF-8"?>',
-      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
       ...entries,
       '</urlset>',
     ].join('');

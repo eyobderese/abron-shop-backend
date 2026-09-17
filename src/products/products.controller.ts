@@ -73,6 +73,7 @@ function validateSizeConfiguration(sizeType: ProductSizeType, sizes: string[]) {
 function productData(dto: CreateProductDto | UpdateProductDto) {
   return {
     ...(dto.name !== undefined && { name: dto.name.trim() }),
+    ...(dto.product_type !== undefined && { productType: dto.product_type.trim() }),
     ...(dto.name_am !== undefined && { nameAm: dto.name_am || null }),
     ...(dto.name_or !== undefined && { nameOr: dto.name_or || null }),
     ...(dto.description !== undefined && { description: dto.description }),
@@ -140,6 +141,7 @@ export class ProductsController {
               'name',
               'nameAm',
               'nameOr',
+              'productType',
               'brand',
               'description',
               'descriptionAm',
