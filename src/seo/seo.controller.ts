@@ -1,6 +1,7 @@
 import { Controller, Get, Header, NotFoundException, Param, Redirect } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
+import { slugifyProductName } from '../products/product-slug';
 
 function xmlEscape(value: string) {
   return value
@@ -72,14 +73,31 @@ export class SeoController {
         orderBy: { updatedAt: 'desc' },
       }),
       this.prisma.product.findMany({
-        select: { slug: true, updatedAt: true, images: true },
+        select: { slug: true, brand: true, updatedAt: true, images: true },
         orderBy: { updatedAt: 'desc' },
       }),
     ]);
 
+    const brandUpdates = new Map<string, Date>();
+    for (const product of products) {
+      if (!product.brand?.trim()) continue;
+      const brandSlug = slugifyProductName(product.brand);
+      const previous = brandUpdates.get(brandSlug);
+      if (!previous || product.updatedAt > previous) {
+        brandUpdates.set(brandSlug, product.updatedAt);
+      }
+    }
+
     const entries = [
       sitemapEntry(`${siteUrl}/`),
       sitemapEntry(`${siteUrl}/categories`),
+      sitemapEntry(`${siteUrl}/brands`),
+      ...[...brandUpdates.entries()].map(([brandSlug, updatedAt]) =>
+        sitemapEntry(
+          `${siteUrl}/brands/${encodeURIComponent(brandSlug)}`,
+          updatedAt,
+        ),
+      ),
       ...categories.map((category) =>
         sitemapEntry(
           `${siteUrl}/category/${encodeURIComponent(category.slug)}`,

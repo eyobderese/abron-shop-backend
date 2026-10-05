@@ -5,7 +5,7 @@ import { productJson } from '../common/serializers';
 import { PrismaService } from '../database/prisma.service';
 import { MediaService } from '../media/media.service';
 import { CreateProductDto, UpdateProductDto } from './products.dto';
-import { uniqueProductSlug } from './product-slug';
+import { slugifyProductName, uniqueProductSlug } from './product-slug';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const COLOR_WORDS = new Set([
@@ -170,6 +170,59 @@ export class ProductsController {
       take: Math.min(Math.max(Number(query.limit) || 100, 1), 100),
     });
     return rows.map(productJson);
+  }
+
+  private async brandSummaries() {
+    const grouped = await this.prisma.product.groupBy({
+      by: ['brand'],
+      where: { brand: { not: null } },
+      _count: { _all: true },
+      orderBy: { brand: 'asc' },
+    });
+    const summaries = new Map<string, { name: string; slug: string; product_count: number }>();
+
+    for (const row of grouped) {
+      const name = row.brand?.trim();
+      if (!name) continue;
+      const slug = slugifyProductName(name);
+      const existing = summaries.get(slug);
+      if (existing) {
+        existing.product_count += row._count._all;
+      } else {
+        summaries.set(slug, {
+          name,
+          slug,
+          product_count: row._count._all,
+        });
+      }
+    }
+
+    return [...summaries.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  @Get('brands')
+  listBrands() {
+    return this.brandSummaries();
+  }
+
+  @Get('brands/:slug/products')
+  async productsByBrand(@Param('slug') slug: string) {
+    const normalizedSlug = slug.toLowerCase();
+    const brands = await this.brandSummaries();
+    const brand = brands.find((item) => item.slug === normalizedSlug);
+    if (!brand) throw new NotFoundException('Brand not found');
+
+    const rows = await this.prisma.product.findMany({
+      where: { brand: { equals: brand.name, mode: 'insensitive' } },
+      include: { category: true, family: true },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    return {
+      brand,
+      products: rows.map(productJson),
+    };
   }
 
   @Get('products')
