@@ -4,10 +4,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { inquiryJson } from '../common/serializers';
 import { PrismaService } from '../database/prisma.service';
 import { CreateInquiryDto, UpdateInquiryStatusDto } from './inquiries.dto';
+import { TelegramNotificationsService } from './telegram-notifications.service';
 
 @Controller()
 export class InquiriesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly telegramNotifications: TelegramNotificationsService,
+  ) {}
 
   @Post('inquiries')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -23,18 +27,28 @@ export class InquiriesController {
     if (product.sizes.length === 0 && selectedSize) {
       throw new BadRequestException('This product does not have selectable sizes');
     }
-    const row = await this.prisma.inquiry.create({
-      data: {
-        productId: product.id,
-        productName: product.name,
-        fullName: dto.full_name.trim(),
-        phone: dto.phone.trim(),
-        telegram: dto.telegram.trim(),
-        selectedSize,
-        selectedColor: product.colorName,
-        message: dto.message?.trim() || null,
-      },
+    const row = await this.prisma.$transaction(async (transaction) => {
+      const inquiry = await transaction.inquiry.create({
+        data: {
+          productId: product.id,
+          productName: product.name,
+          fullName: dto.full_name.trim(),
+          phone: dto.phone.trim(),
+          telegram: dto.telegram.trim(),
+          selectedSize,
+          selectedColor: product.colorName,
+          message: dto.message?.trim() || null,
+        },
+      });
+
+      if (this.telegramNotifications.isEnabled()) {
+        await transaction.inquiryNotification.create({ data: { inquiryId: inquiry.id } });
+      }
+
+      return inquiry;
     });
+
+    this.telegramNotifications.wake();
     return inquiryJson(row);
   }
 

@@ -19,6 +19,13 @@ enum InquiryStatus {
   closed
 }
 
+enum NotificationDeliveryStatus {
+  pending
+  sending
+  sent
+  failed
+}
+
 enum MediaType {
   image
   video
@@ -145,22 +152,43 @@ model Product {
 }
 
 model Inquiry {
-  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productId     String?       @map("product_id") @db.Uuid
-  productName   String        @map("product_name")
-  fullName      String        @map("full_name")
+  id            String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId     String?               @map("product_id") @db.Uuid
+  productName   String                @map("product_name")
+  fullName      String                @map("full_name")
   phone         String
   telegram      String
-  selectedSize  String?       @map("selected_size")
-  selectedColor String?       @map("selected_color")
+  selectedSize  String?               @map("selected_size")
+  selectedColor String?               @map("selected_color")
   message       String?
-  status        InquiryStatus @default(new)
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  product       Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  status        InquiryStatus         @default(new)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  product       Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
+  notifications InquiryNotification[]
 
   @@index([status, createdAt(sort: Desc)])
   @@map("inquiries")
+}
+
+model InquiryNotification {
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inquiryId         String                     @map("inquiry_id") @db.Uuid
+  channel           String                     @default("telegram")
+  status            NotificationDeliveryStatus @default(pending)
+  attempts          Int                        @default(0)
+  nextAttemptAt     DateTime                   @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  lockedAt          DateTime?                  @map("locked_at") @db.Timestamptz(6)
+  providerMessageId String?                    @map("provider_message_id")
+  lastError         String?                    @map("last_error")
+  sentAt            DateTime?                  @map("sent_at") @db.Timestamptz(6)
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  inquiry           Inquiry                    @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
+  @@unique([inquiryId, channel])
+  @@index([status, nextAttemptAt])
+  @@map("inquiry_notifications")
 }
 
 model Advertisement {

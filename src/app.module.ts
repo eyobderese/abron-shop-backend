@@ -22,6 +22,14 @@ function validate(config: Record<string, unknown>) {
   if (String(config.JWT_ACCESS_SECRET).length < 32 || String(config.JWT_REFRESH_SECRET).length < 32) {
     throw new Error('JWT secrets must each contain at least 32 characters');
   }
+  const telegramEnabled = ['true', '1', 'yes', 'on'].includes(
+    String(config.TELEGRAM_NOTIFICATIONS_ENABLED ?? '').toLowerCase(),
+  );
+  if (telegramEnabled) {
+    for (const key of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_CHAT_ID']) {
+      if (!config[key]) throw new Error(`Missing required environment variable: ${key}`);
+    }
+  }
   return config;
 }
 
