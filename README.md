@@ -33,6 +33,17 @@ Product prices support Ethiopian birr (`ETB`) and US dollars (`USD`). New produc
 
 Administrators can generate reviewable Amharic and Afaan Oromo product-translation drafts with Google Cloud Translation Basic. Configure `GOOGLE_TRANSLATE_API_KEY` only on the backend; the browser never receives it. The draft endpoint does not write to PostgreSQL. Translations are stored only after the administrator reviews them and submits the normal product form.
 
+New inquiries can notify an administrator through a private Telegram bot chat. Configure the following variables only on the backend:
+
+```env
+TELEGRAM_NOTIFICATIONS_ENABLED=true
+TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_ADMIN_CHAT_ID=your-private-chat-id
+TELEGRAM_ADMIN_URL=https://abronshop.online/admin/inquiries
+```
+
+The inquiry and its notification job are saved in one PostgreSQL transaction. A background worker sends the message and retries temporary Telegram failures, so Telegram latency or downtime does not delay or reject the customer's inquiry.
+
 ## Frontend connection
 
 The frontend must set:
@@ -114,6 +125,13 @@ Deploy the backend before the frontend. After deployment, edit an existing
 product and add its brand, model code, family name, and color. Use **Duplicate as
 another color** to create its other colors without copying the original images.
 
+### Telegram inquiry notifications
+
+Migration `202610060001_telegram_notification_outbox` adds the durable inquiry
+notification queue. Normal backend deployment applies it automatically before the
+API starts. The bot token remains in the VPS `.env.production` file and must never
+be committed or added to a frontend `VITE_*` variable.
+
 ## Independent deployment notes
 
 - Expose port 3000 through your platform or reverse proxy.
@@ -123,3 +141,4 @@ another color** to create its other colors without copying the original images.
 - Set `FRONTEND_ORIGIN` to the separately deployed frontend URL.
 - Never commit `.env` or `.env.production`.
 - Restrict the Google API key to the Cloud Translation API and the VPS public IP address. Rotate it periodically and never expose it through a frontend `VITE_*` variable.
+- Keep the Telegram bot token backend-only. Rotate it with BotFather immediately if it is ever exposed.
