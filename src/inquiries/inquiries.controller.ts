@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
+  NotFoundException,
   Controller,
   Get,
   Param,
@@ -17,7 +19,7 @@ import { PrismaService } from '../database/prisma.service';
 import { adminActor } from '../promo/promo.controller';
 import { CancelInquiryDto, ConfirmSaleDto } from '../promo/promo.dto';
 import { PromoService } from '../promo/promo.service';
-import { CreateAdminInquiryDto, CreateInquiryDto, UpdateInquiryStatusDto } from './inquiries.dto';
+import { CreateAdminInquiryDto, CreateFeedbackDto, CreateInquiryDto, UpdateInquiryStatusDto } from './inquiries.dto';
 import { TelegramNotificationsService } from './telegram-notifications.service';
 
 const adminInclude = {
@@ -94,6 +96,61 @@ export class InquiriesController {
       ...inquiryJson(row),
       telegram_updates_url: this.promo.customerTelegramUrl(row.customerLinkCode),
     };
+  }
+
+  /**
+   * Optional rating right after an inquiry. The inquiry id is only known to the
+   * person who submitted it (returned by POST /inquiries), one answer per inquiry.
+   */
+  @Post('inquiries/:id/feedback')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async feedback(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateFeedbackDto) {
+    const inquiry = await this.prisma.inquiry.findUnique({
+      where: { id },
+      select: { id: true, createdAt: true, feedback: { select: { id: true } } },
+    });
+    if (!inquiry || inquiry.createdAt.getTime() < Date.now() - 7 * 24 * 60 * 60 * 1000) {
+      throw new NotFoundException('Inquiry not found');
+    }
+    if (inquiry.feedback) throw new ConflictException('Thank you — feedback was already received');
+    const row = await this.prisma.inquiryFeedback.create({
+      data: {
+        inquiryId: id,
+        rating: dto.rating,
+        comment: dto.comment?.trim() || null,
+        allowPublic: dto.allow_public ?? false,
+      },
+    });
+    return { id: row.id, rating: row.rating };
+  }
+
+  @Get('admin/feedback')
+  @UseGuards(JwtAuthGuard)
+  async listFeedback() {
+    const rows = await this.prisma.inquiryFeedback.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+      include: {
+        inquiry: {
+          select: { id: true, productId: true, productName: true, fullName: true, phone: true, status: true },
+        },
+      },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      rating: row.rating,
+      comment: row.comment,
+      allow_public: row.allowPublic,
+      created_at: row.createdAt,
+      inquiry: {
+        id: row.inquiry.id,
+        product_id: row.inquiry.productId,
+        product_name: row.inquiry.productName,
+        customer: row.inquiry.fullName,
+        phone: row.inquiry.phone,
+        status: row.inquiry.status,
+      },
+    }));
   }
 
   @Get('admin/inquiries')

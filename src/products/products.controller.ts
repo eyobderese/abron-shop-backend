@@ -1,6 +1,7 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Prisma, ProductSizeType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ProductEditorAllowed } from '../auth/roles.decorator';
 import { productJson } from '../common/serializers';
 import { PrismaService } from '../database/prisma.service';
 import { MediaService } from '../media/media.service';
@@ -369,12 +370,14 @@ export class ProductsController {
 
   @Get('admin/products')
   @UseGuards(JwtAuthGuard)
+  @ProductEditorAllowed()
   listAdmin(@Query() query: { categoryIds?: string; search?: string; limit?: string }) {
     return this.list(query);
   }
 
   @Post('admin/products')
   @UseGuards(JwtAuthGuard)
+  @ProductEditorAllowed()
   async create(@Body() dto: CreateProductDto) {
     validateSizeConfiguration(
       dto.size_type ?? ProductSizeType.NONE,
@@ -443,6 +446,7 @@ export class ProductsController {
 
   @Patch('admin/products/:id')
   @UseGuards(JwtAuthGuard)
+  @ProductEditorAllowed()
   async update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
     const existing = await this.prisma.product.findUnique({
       where: { id },
