@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 export class CreateInquiryDto {
   @IsUUID() product_id: string;
@@ -26,4 +26,10 @@ export class CreateAdminInquiryDto {
 export class UpdateInquiryStatusDto {
   @IsIn(['new', 'contacted'])
   status: 'new' | 'contacted';
+}
+
+export class CreateFeedbackDto {
+  @IsInt() @Min(1) @Max(5) rating: number;
+  @IsOptional() @IsString() @MaxLength(2000) comment?: string | null;
+  @IsOptional() @IsBoolean() allow_public?: boolean;
 }

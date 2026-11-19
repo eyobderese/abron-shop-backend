@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ProductEditorAllowed } from '../auth/roles.decorator';
 import { categoryJson } from '../common/serializers';
 import { MediaService } from '../media/media.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './categories.dto';
@@ -35,6 +36,7 @@ export class CategoriesController {
 
   @Get('admin/categories')
   @UseGuards(JwtAuthGuard)
+  @ProductEditorAllowed()
   async listAdmin() {
     const rows = await this.prisma.category.findMany({ orderBy: [{ sortOrder: 'asc' }, { nameEn: 'asc' }] });
     return rows.map(categoryJson);

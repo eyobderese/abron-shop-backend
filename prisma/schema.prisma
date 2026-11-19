@@ -11,6 +11,7 @@ enum UserRole {
   ADMIN
   MANAGER
   SUPPORT
+  PRODUCT_EDITOR // can add and edit products only
 }
 
 enum InquiryStatus {
@@ -249,6 +250,7 @@ model Inquiry {
   promoCode     PromoCode?            @relation(fields: [promoCodeId], references: [id], onDelete: Restrict)
   notifications InquiryNotification[]
   commission    Commission?
+  feedback      InquiryFeedback?
   disputes      Dispute[]
 
   @@index([status, createdAt(sort: Desc)])
@@ -446,4 +448,19 @@ model Advertisement {
   @@index([placement, isActive, sortOrder])
   @@index([categoryId])
   @@map("advertisements")
+}
+
+/// Optional rating/comment a customer leaves right after sending an inquiry.
+model InquiryFeedback {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inquiryId   String   @unique @map("inquiry_id") @db.Uuid
+  rating      Int
+  comment     String?
+  /// Customer agreed that the review may be shown publicly on the website.
+  allowPublic Boolean  @default(false) @map("allow_public")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  inquiry     Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("inquiry_feedback")
 }

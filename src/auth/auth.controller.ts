@@ -4,6 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
 import { LoginDto } from './auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { ProductEditorAllowed } from './roles.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -27,6 +28,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @ProductEditorAllowed()
   me(@Req() req: FastifyRequest & { user: any }) {
     return { user: req.user };
   }
