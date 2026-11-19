@@ -16,7 +16,58 @@ enum UserRole {
 enum InquiryStatus {
   new
   contacted
-  closed
+  confirmed
+  delivered
+  cancelled
+  closed // legacy: pre-promo "closed" rows; not settable any more
+}
+
+enum InquirySource {
+  website
+  admin
+}
+
+enum AttributionSource {
+  code // customer typed / arrived with the code
+  phone // same customer phone used a code within the attribution window
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum CommissionStatus {
+  pending // sale confirmed, waiting for delivery + hold period
+  approved // ready to pay
+  paid
+  void
+}
+
+enum CustomerConfirmation {
+  confirmed // customer confirmed they did NOT buy
+  disputed // customer says they DID buy
+}
+
+enum DisputeSource {
+  marketer
+  customer
+}
+
+enum DisputeStatus {
+  open
+  accepted
+  rejected
+}
+
+enum CancelReason {
+  no_answer
+  changed_mind
+  price
+  out_of_stock
+  duplicate
+  returned
+  other
 }
 
 enum NotificationDeliveryStatus {
@@ -152,23 +203,207 @@ model Product {
 }
 
 model Inquiry {
-  id            String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productId     String?               @map("product_id") @db.Uuid
-  productName   String                @map("product_name")
-  fullName      String                @map("full_name")
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId     String?       @map("product_id") @db.Uuid
+  productName   String        @map("product_name")
+  fullName      String        @map("full_name")
   phone         String
+  /// Last 9 digits of the phone, used to match the same customer across inquiries.
+  phoneKey      String?       @map("phone_key")
   telegram      String
-  selectedSize  String?               @map("selected_size")
-  selectedColor String?               @map("selected_color")
+  selectedSize  String?       @map("selected_size")
+  selectedColor String?       @map("selected_color")
   message       String?
-  status        InquiryStatus         @default(new)
+  status        InquiryStatus @default(new)
+  source        InquirySource @default(website)
+  quantity      Int           @default(1)
+
+  // Promo attribution + price snapshots taken when the inquiry was submitted.
+  promoCodeId       String?            @map("promo_code_id") @db.Uuid
+  promoCodeText     String?            @map("promo_code_text")
+  attributionSource AttributionSource? @map("attribution_source")
+  listPrice         Decimal?           @map("list_price") @db.Decimal(10, 2)
+  discountAmount    Decimal?           @map("discount_amount") @db.Decimal(10, 2)
+  quotedPrice       Decimal?           @map("quoted_price") @db.Decimal(10, 2)
+  currency          ProductCurrency?
+  /// Commission per item snapshotted from the promo code when attributed.
+  commissionPerItem Decimal?           @map("commission_per_item") @db.Decimal(10, 2)
+
+  // Outcome
+  finalAmount  Decimal?      @map("final_amount") @db.Decimal(10, 2)
+  cancelReason CancelReason? @map("cancel_reason")
+  cancelNote   String?       @map("cancel_note")
+  confirmedAt  DateTime?     @map("confirmed_at") @db.Timestamptz(6)
+  deliveredAt  DateTime?     @map("delivered_at") @db.Timestamptz(6)
+  cancelledAt  DateTime?     @map("cancelled_at") @db.Timestamptz(6)
+
+  // Customer Telegram link (bot deep link) + their answer when cancelled.
+  customerLinkCode     String?               @unique @map("customer_link_code")
+  customerChatId       String?               @map("customer_chat_id")
+  customerConfirmation CustomerConfirmation? @map("customer_confirmation")
+  customerConfirmedAt  DateTime?             @map("customer_confirmed_at") @db.Timestamptz(6)
+
   createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   product       Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
+  promoCode     PromoCode?            @relation(fields: [promoCodeId], references: [id], onDelete: Restrict)
   notifications InquiryNotification[]
+  commission    Commission?
+  disputes      Dispute[]
 
   @@index([status, createdAt(sort: Desc)])
+  @@index([promoCodeId, createdAt(sort: Desc)])
+  @@index([phoneKey, createdAt(sort: Desc)])
   @@map("inquiries")
+}
+
+model Marketer {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  phone            String
+  phoneKey         String?      @map("phone_key")
+  telegram         String?
+  payoutMethod     String?      @map("payout_method")
+  payoutAccount    String?      @map("payout_account")
+  notes            String?
+  isActive         Boolean      @default(true) @map("is_active")
+  /// sha256 of the private portal token. The raw token is only shown to the admin once.
+  portalTokenHash  String       @unique @map("portal_token_hash")
+  telegramLinkCode String       @unique @map("telegram_link_code")
+  telegramChatId   String?      @map("telegram_chat_id")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  promoCodes       PromoCode[]
+  commissions      Commission[]
+  payouts          Payout[]
+  disputes         Dispute[]
+
+  @@map("marketers")
+}
+
+model PromoCode {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String       @unique
+  marketerId       String       @map("marketer_id") @db.Uuid
+  discountType     DiscountType @map("discount_type")
+  discountValue    Decimal      @map("discount_value") @db.Decimal(10, 2)
+  /// Fixed commission (ETB) paid per item sold with this code.
+  commissionAmount Decimal      @map("commission_amount") @db.Decimal(10, 2)
+  startsAt         DateTime?    @map("starts_at") @db.Timestamptz(6)
+  endsAt           DateTime?    @map("ends_at") @db.Timestamptz(6)
+  maxUses          Int?         @map("max_uses")
+  isActive         Boolean      @default(true) @map("is_active")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  marketer         Marketer     @relation(fields: [marketerId], references: [id], onDelete: Restrict)
+  inquiries        Inquiry[]
+  visits           PromoVisit[]
+
+  @@index([marketerId])
+  @@map("promo_codes")
+}
+
+model PromoVisit {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promoCodeId String    @map("promo_code_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+
+  @@index([promoCodeId, createdAt])
+  @@map("promo_visits")
+}
+
+model Commission {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  marketerId String           @map("marketer_id") @db.Uuid
+  inquiryId  String           @unique @map("inquiry_id") @db.Uuid
+  amount     Decimal          @db.Decimal(10, 2)
+  /// The amount without any dispute penalty, for transparency.
+  baseAmount Decimal          @map("base_amount") @db.Decimal(10, 2)
+  isPenalty  Boolean          @default(false) @map("is_penalty")
+  status     CommissionStatus @default(pending)
+  eligibleAt DateTime?        @map("eligible_at") @db.Timestamptz(6)
+  voidReason String?          @map("void_reason")
+  payoutId   String?          @map("payout_id") @db.Uuid
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  marketer   Marketer         @relation(fields: [marketerId], references: [id], onDelete: Restrict)
+  inquiry    Inquiry          @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
+  payout     Payout?          @relation(fields: [payoutId], references: [id], onDelete: Restrict)
+
+  @@index([marketerId, status])
+  @@index([status, eligibleAt])
+  @@map("commissions")
+}
+
+model Payout {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  marketerId     String       @map("marketer_id") @db.Uuid
+  amount         Decimal      @db.Decimal(10, 2)
+  method         String
+  transactionRef String       @map("transaction_ref")
+  receiptUrl     String?      @map("receipt_url")
+  note           String?
+  paidAt         DateTime     @default(now()) @map("paid_at") @db.Timestamptz(6)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  marketer       Marketer     @relation(fields: [marketerId], references: [id], onDelete: Restrict)
+  commissions    Commission[]
+
+  @@index([marketerId, paidAt(sort: Desc)])
+  @@map("payouts")
+}
+
+model Dispute {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inquiryId     String        @map("inquiry_id") @db.Uuid
+  marketerId    String        @map("marketer_id") @db.Uuid
+  source        DisputeSource
+  note          String?
+  status        DisputeStatus @default(open)
+  adminResponse String?       @map("admin_response")
+  resolvedAt    DateTime?     @map("resolved_at") @db.Timestamptz(6)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  inquiry       Inquiry       @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
+  marketer      Marketer      @relation(fields: [marketerId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([marketerId, createdAt(sort: Desc)])
+  @@map("disputes")
+}
+
+/// Append-only history. Never updated or deleted by the application.
+model AuditEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity     String // inquiry | commission | promo_code | marketer | payout | dispute
+  entityId   String   @map("entity_id") @db.Uuid
+  marketerId String?  @map("marketer_id") @db.Uuid
+  action     String
+  detail     Json     @default("{}")
+  actor      String // "admin:<email>" | "system" | "customer" | "marketer"
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([entity, entityId, createdAt])
+  @@index([marketerId, createdAt(sort: Desc)])
+  @@map("audit_events")
+}
+
+/// Generic outbound Telegram queue (marketer + customer messages).
+model TelegramOutbox {
+  id            String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatId        String                     @map("chat_id")
+  text          String
+  replyMarkup   Json?                      @map("reply_markup")
+  status        NotificationDeliveryStatus @default(pending)
+  attempts      Int                        @default(0)
+  nextAttemptAt DateTime                   @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  lockedAt      DateTime?                  @map("locked_at") @db.Timestamptz(6)
+  lastError     String?                    @map("last_error")
+  sentAt        DateTime?                  @map("sent_at") @db.Timestamptz(6)
+  createdAt     DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([status, nextAttemptAt])
+  @@map("telegram_outbox")
 }
 
 model InquiryNotification {

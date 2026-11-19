@@ -1,5 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
-import { InquiryStatus } from '@prisma/client';
+import { IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 
 export class CreateInquiryDto {
   @IsUUID() product_id: string;
@@ -8,9 +7,23 @@ export class CreateInquiryDto {
   @IsString() @MaxLength(100) telegram: string;
   @IsOptional() @IsString() @MaxLength(40) selected_size?: string | null;
   @IsOptional() @IsString() @MaxLength(2000) message?: string | null;
+  @IsOptional() @IsString() @MaxLength(40) promo_code?: string | null;
 }
 
+/** An order taken by phone / in person, recorded by the admin so it is never "off the books". */
+export class CreateAdminInquiryDto {
+  @IsUUID() product_id: string;
+  @IsString() @MaxLength(160) full_name: string;
+  @IsString() @MaxLength(60) phone: string;
+  @IsOptional() @IsString() @MaxLength(100) telegram?: string | null;
+  @IsOptional() @IsString() @MaxLength(40) selected_size?: string | null;
+  @IsOptional() @IsString() @MaxLength(2000) message?: string | null;
+  @IsOptional() @IsString() @MaxLength(40) promo_code?: string | null;
+  @IsOptional() @IsInt() @Min(1) quantity?: number;
+}
+
+/** Only the early, non-financial statuses can be set directly. */
 export class UpdateInquiryStatusDto {
-  @IsEnum(InquiryStatus)
-  status: InquiryStatus;
+  @IsIn(['new', 'contacted'])
+  status: 'new' | 'contacted';
 }
