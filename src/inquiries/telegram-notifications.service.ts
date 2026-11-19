@@ -188,6 +188,10 @@ export class TelegramNotificationsService
     selectedSize: string | null;
     selectedColor: string | null;
     message: string | null;
+    promoCodeText?: string | null;
+    attributionSource?: string | null;
+    quotedPrice?: { toString(): string } | null;
+    currency?: string | null;
     product: {
       brand: string | null;
       price: { toString(): string } | null;
@@ -210,6 +214,17 @@ export class TelegramNotificationsService
       `Color: ${inquiry.selectedColor || 'Not selected'}`,
       `Size: ${inquiry.selectedSize || 'Not selected'}`,
       `Price: ${price}`,
+      ...(inquiry.promoCodeText
+        ? [
+            inquiry.attributionSource === 'phone'
+              ? `Promo: ${inquiry.promoCodeText} (returning customer — no discount, marketer credited)`
+              : `Promo: ${inquiry.promoCodeText}${
+                  inquiry.quotedPrice
+                    ? ` → quote ${Number(inquiry.quotedPrice.toString()).toLocaleString('en-US')} ${inquiry.currency ?? ''}`.trimEnd()
+                    : ' (apply discount in quote)'
+                }`,
+          ]
+        : []),
       '',
       `Customer: ${inquiry.fullName}`,
       `Phone: ${inquiry.phone}`,

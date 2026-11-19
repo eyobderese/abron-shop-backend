@@ -77,9 +77,41 @@ export function inquiryJson(row: any) {
     selected_color: row.selectedColor,
     message: row.message,
     status: row.status,
+    source: row.source ?? 'website',
+    quantity: row.quantity ?? 1,
+    promo_code: row.promoCodeText ?? null,
+    attribution_source: row.attributionSource ?? null,
+    marketer: row.promoCode?.marketer
+      ? { id: row.promoCode.marketer.id, name: row.promoCode.marketer.name }
+      : null,
+    list_price: num(row.listPrice),
+    discount_amount: num(row.discountAmount),
+    quoted_price: num(row.quotedPrice),
+    currency: row.currency ?? null,
+    final_amount: num(row.finalAmount),
+    cancel_reason: row.cancelReason ?? null,
+    cancel_note: row.cancelNote ?? null,
+    confirmed_at: row.confirmedAt ?? null,
+    delivered_at: row.deliveredAt ?? null,
+    cancelled_at: row.cancelledAt ?? null,
+    customer_on_telegram: Boolean(row.customerChatId),
+    customer_confirmation: row.customerConfirmation ?? null,
+    commission: row.commission
+      ? {
+          amount: num(row.commission.amount),
+          status: row.commission.status,
+          is_penalty: row.commission.isPenalty,
+          eligible_at: row.commission.eligibleAt,
+        }
+      : null,
+    open_disputes: Array.isArray(row.disputes) ? row.disputes.length : 0,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
   };
+}
+
+function num(value: { toString(): string } | null | undefined) {
+  return value === null || value === undefined ? null : Number(value.toString());
 }
 
 export function adJson(row: any) {
