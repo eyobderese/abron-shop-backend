@@ -14,7 +14,7 @@ export class MediaService {
   ) {}
 
   private safeFolder(folder?: string) {
-    return ['products', 'categories', 'ads'].includes(folder ?? '') ? folder! : 'misc';
+    return ['products', 'categories', 'ads', 'payouts'].includes(folder ?? '') ? folder! : 'misc';
   }
 
   private objectKey(extension: string, folder?: string) {
