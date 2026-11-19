@@ -7,11 +7,13 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ProductEditorAllowed } from '../auth/roles.decorator';
 import { ProductTranslationDraftDto } from './translations.dto';
 import { TranslationsService } from './translations.service';
 
 @Controller('admin/translations')
 @UseGuards(JwtAuthGuard)
+@ProductEditorAllowed()
 export class TranslationsController {
   constructor(private readonly translations: TranslationsService) {}
 
