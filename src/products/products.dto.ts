@@ -1,7 +1,7 @@
-import { PartialType } from '@nestjs/swagger';
+import { OmitType, PartialType } from '@nestjs/swagger';
 import { ProductCurrency, ProductSizeType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 
 export class ProductImageViewDto {
   @IsString() @MaxLength(2000) url: string;
@@ -24,7 +24,10 @@ export class CreateProductDto {
   @IsOptional() @IsString() @MaxLength(40) color_code?: string | null;
   @IsOptional() @IsString() @Matches(/^#[0-9a-fA-F]{6}$/) color_hex?: string | null;
   @IsOptional() @IsInt() @Min(0) variant_sort_order?: number;
-  @IsOptional() @IsNumber() @Min(0) price?: number | null;
+  /** Every product must have a price (customers see it and promo discounts use it). */
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Price is required' })
+  @IsPositive({ message: 'Price must be greater than 0' })
+  price: number;
   @IsOptional() @IsNumber() @Min(0) was_price?: number | null;
   @IsOptional() @IsEnum(ProductCurrency) currency?: ProductCurrency;
   @IsOptional() @IsEnum(ProductSizeType) size_type?: ProductSizeType;
@@ -36,4 +39,10 @@ export class CreateProductDto {
   @IsBoolean() in_stock: boolean;
 }
 
-export class UpdateProductDto extends PartialType(CreateProductDto) {}
+export class UpdateProductDto extends PartialType(OmitType(CreateProductDto, ['price'] as const)) {
+  /** Optional when editing other fields, but it can never be cleared or set to 0. */
+  @ValidateIf((_, value) => value !== undefined)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Price is required' })
+  @IsPositive({ message: 'Price must be greater than 0' })
+  price?: number;
+}
