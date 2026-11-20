@@ -15,7 +15,13 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ logger: true }),
+    new FastifyAdapter({
+      logger: true,
+      // Fastify rejects URL parameters longer than 100 characters by default (HTTP 414),
+      // which broke product pages with long slugs. Allow anything up to the longest
+      // slug ever generated (180) with headroom.
+      routerOptions: { maxParamLength: 255 },
+    }),
   );
   const config = app.get(ConfigService);
   const fastify = app.getHttpAdapter().getInstance() as FastifyInstance;
