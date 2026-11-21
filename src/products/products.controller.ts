@@ -98,6 +98,7 @@ function productData(dto: CreateProductDto | UpdateProductDto) {
     ...(dto.images !== undefined && { images: dto.images }),
     ...(dto.image_views !== undefined && { imageViews: dto.image_views as any }),
     ...(dto.in_stock !== undefined && { inStock: dto.in_stock }),
+    ...(dto.featured_in_hero !== undefined && { featuredInHero: dto.featured_in_hero }),
   };
 }
 
@@ -107,6 +108,14 @@ export class ProductsController {
     private readonly prisma: PrismaService,
     private readonly media: MediaService,
   ) {}
+
+  /** Only one product can be in the hero: unset it everywhere else. */
+  private clearHero(tx: Prisma.TransactionClient, exceptId?: string) {
+    return tx.product.updateMany({
+      where: { featuredInHero: true, ...(exceptId && { id: { not: exceptId } }) },
+      data: { featuredInHero: false },
+    });
+  }
 
   private async resolveFamily(
     brand: string | null,
@@ -203,6 +212,17 @@ export class ProductsController {
     }
 
     return [...summaries.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** The product picked for the home page hero, or null (the site then picks one itself). */
+  @Get('products/hero')
+  async heroProduct() {
+    const row = await this.prisma.product.findFirst({
+      where: { featuredInHero: true },
+      include: { category: true, family: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return row ? productJson(row) : null;
   }
 
   /** Products whose flash deal is running now, ending soonest first. */
@@ -438,14 +458,17 @@ export class ProductsController {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const slug = await uniqueProductSlug(this.prisma, slugName);
       try {
-        const row = await this.prisma.product.create({
-          data: {
-            ...productData(dto),
-            slug,
-            familyId: family?.id ?? null,
-            variantKey: productVariantKey,
-          } as any,
-          include: { category: true, family: true },
+        const row = await this.prisma.$transaction(async (tx) => {
+          if (dto.featured_in_hero) await this.clearHero(tx);
+          return tx.product.create({
+            data: {
+              ...productData(dto),
+              slug,
+              familyId: family?.id ?? null,
+              variantKey: productVariantKey,
+            } as any,
+            include: { category: true, family: true },
+          });
         });
         return productJson(row);
       } catch (error) {
@@ -530,14 +553,17 @@ export class ProductsController {
 
     let row;
     try {
-      row = await this.prisma.product.update({
-        where: { id },
-        data: {
-          ...productData(dto),
-          familyId: family?.id ?? null,
-          variantKey: family && colorName ? variantKey(colorName, colorCode) : null,
-        },
-        include: { category: true, family: true },
+      row = await this.prisma.$transaction(async (tx) => {
+        if (dto.featured_in_hero) await this.clearHero(tx, id);
+        return tx.product.update({
+          where: { id },
+          data: {
+            ...productData(dto),
+            familyId: family?.id ?? null,
+            variantKey: family && colorName ? variantKey(colorName, colorCode) : null,
+          },
+          include: { category: true, family: true },
+        });
       });
     } catch (error) {
       if (

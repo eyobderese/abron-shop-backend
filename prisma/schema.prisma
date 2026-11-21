@@ -194,6 +194,8 @@ model Product {
   images         String[]        @default([])
   imageViews     Json            @default("[]") @map("image_views")
   inStock        Boolean         @default(true) @map("in_stock")
+  /// The one product shown in the home page hero (at most one is true).
+  featuredInHero Boolean         @default(false) @map("featured_in_hero")
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   category       Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
