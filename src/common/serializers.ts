@@ -64,6 +64,7 @@ export function productJson(row: any) {
     images: row.images,
     image_views: imageViews,
     in_stock: row.inStock,
+    featured_in_hero: row.featuredInHero ?? false,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
     categories: row.category ? categoryJson(row.category) : null,

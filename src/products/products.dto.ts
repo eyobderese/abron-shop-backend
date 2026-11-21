@@ -42,6 +42,8 @@ export class CreateProductDto {
   @IsArray() @ValidateNested({ each: true }) @Type(() => ProductImageViewDto)
   image_views: ProductImageViewDto[];
   @IsBoolean() in_stock: boolean;
+  /** Show this product in the home page hero. Setting it unsets every other product. */
+  @IsOptional() @IsBoolean() featured_in_hero?: boolean;
 }
 
 export class UpdateProductDto extends PartialType(OmitType(CreateProductDto, ['price'] as const)) {
