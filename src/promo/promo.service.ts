@@ -1,3 +1,4 @@
+import { effectivePrice } from '../products/flash-deal';
 import {
   BadRequestException,
   Injectable,
@@ -176,11 +177,12 @@ export class PromoService implements OnModuleInit {
   }
 
   async validate(rawCode: string, productId: string) {
-    const product = await this.prisma.product.findUnique({
+    const found = await this.prisma.product.findUnique({
       where: { id: productId },
-      select: { id: true, name: true, price: true, currency: true },
+      select: { id: true, name: true, price: true, currency: true, flashPrice: true, flashStartsAt: true, flashEndsAt: true },
     });
-    if (!product) throw new NotFoundException('Product not found');
+    if (!found) throw new NotFoundException('Product not found');
+    const product = { ...found, price: effectivePrice(found) };
     try {
       const code = await this.loadUsableCode(this.prisma, rawCode);
       const price = this.pricing(code, product);

@@ -1,7 +1,7 @@
 import { OmitType, PartialType } from '@nestjs/swagger';
 import { ProductCurrency, ProductSizeType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 
 export class ProductImageViewDto {
   @IsString() @MaxLength(2000) url: string;
@@ -29,6 +29,11 @@ export class CreateProductDto {
   @IsPositive({ message: 'Price must be greater than 0' })
   price: number;
   @IsOptional() @IsNumber() @Min(0) was_price?: number | null;
+  /** Flash deal: send null for all three to remove the deal. */
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @IsPositive({ message: 'Flash deal price must be greater than 0' })
+  flash_price?: number | null;
+  @IsOptional() @IsDateString() flash_starts_at?: string | null;
+  @IsOptional() @IsDateString() flash_ends_at?: string | null;
   @IsOptional() @IsEnum(ProductCurrency) currency?: ProductCurrency;
   @IsOptional() @IsEnum(ProductSizeType) size_type?: ProductSizeType;
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsString({ each: true }) @MaxLength(40, { each: true })

@@ -1,3 +1,4 @@
+import { validateFlashDeal } from './flash-deal';
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Prisma, ProductSizeType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -88,6 +89,9 @@ function productData(dto: CreateProductDto | UpdateProductDto) {
     ...(dto.variant_sort_order !== undefined && { variantSort: dto.variant_sort_order }),
     ...(dto.price !== undefined && { price: dto.price }),
     ...(dto.was_price !== undefined && { wasPrice: dto.was_price }),
+    ...(dto.flash_price !== undefined && { flashPrice: dto.flash_price }),
+    ...(dto.flash_starts_at !== undefined && { flashStartsAt: dto.flash_starts_at ? new Date(dto.flash_starts_at) : null }),
+    ...(dto.flash_ends_at !== undefined && { flashEndsAt: dto.flash_ends_at ? new Date(dto.flash_ends_at) : null }),
     ...(dto.currency !== undefined && { currency: dto.currency }),
     ...(dto.size_type !== undefined && { sizeType: dto.size_type }),
     ...(dto.sizes !== undefined && { sizes: normalizedSizes(dto.sizes) }),
@@ -199,6 +203,23 @@ export class ProductsController {
     }
 
     return [...summaries.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** Products whose flash deal is running now, ending soonest first. */
+  @Get('products/flash-deals')
+  async flashDeals() {
+    const now = new Date();
+    const rows = await this.prisma.product.findMany({
+      where: {
+        flashPrice: { not: null },
+        flashEndsAt: { gt: now },
+        OR: [{ flashStartsAt: null }, { flashStartsAt: { lte: now } }],
+      },
+      include: { category: true, family: true },
+      orderBy: { flashEndsAt: 'asc' },
+      take: 24,
+    });
+    return rows.map((row) => productJson(row)).filter((p) => p.flash_deal);
   }
 
   @Get('brands')
@@ -387,6 +408,12 @@ export class ProductsController {
     if (!brand) {
       throw new BadRequestException('Brand is required');
     }
+    validateFlashDeal({
+      price: dto.price,
+      flashPrice: dto.flash_price ?? null,
+      flashStartsAt: dto.flash_starts_at ? new Date(dto.flash_starts_at) : null,
+      flashEndsAt: dto.flash_ends_at ? new Date(dto.flash_ends_at) : null,
+    });
     const modelCode = dto.model_code?.trim() || null;
     if (modelCode && !dto.family_name?.trim()) {
       throw new BadRequestException('Model/family name is required with a model code');
@@ -459,9 +486,21 @@ export class ProductsController {
         family: true,
         colorName: true,
         colorCode: true,
+        price: true,
+        flashPrice: true,
+        flashStartsAt: true,
+        flashEndsAt: true,
       },
     });
     if (!existing) throw new NotFoundException('Product not found');
+    const toDate = (value: string | null | undefined, fallback: Date | null) =>
+      value === undefined ? fallback : value ? new Date(value) : null;
+    validateFlashDeal({
+      price: dto.price ?? existing.price,
+      flashPrice: dto.flash_price === undefined ? existing.flashPrice : dto.flash_price,
+      flashStartsAt: toDate(dto.flash_starts_at, existing.flashStartsAt),
+      flashEndsAt: toDate(dto.flash_ends_at, existing.flashEndsAt),
+    });
     validateSizeConfiguration(
       dto.size_type ?? existing.sizeType,
       dto.sizes === undefined ? existing.sizes : normalizedSizes(dto.sizes),

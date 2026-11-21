@@ -1,3 +1,4 @@
+import { flashDealJson } from '../products/flash-deal';
 export function categoryJson(row: any) {
   return {
     id: row.id,
@@ -53,6 +54,10 @@ export function productJson(row: any) {
     variant_sort_order: row.variantSort ?? 0,
     price: row.price,
     was_price: row.wasPrice,
+    flash_price: row.flashPrice ?? null,
+    flash_starts_at: row.flashStartsAt ?? null,
+    flash_ends_at: row.flashEndsAt ?? null,
+    flash_deal: flashDealJson(row),
     currency: row.currency ?? 'ETB',
     size_type: row.sizeType ?? 'NONE',
     sizes: row.sizes ?? [],

@@ -191,6 +191,7 @@ export class TelegramNotificationsService
     promoCodeText?: string | null;
     attributionSource?: string | null;
     quotedPrice?: { toString(): string } | null;
+    listPrice?: { toString(): string } | null;
     currency?: string | null;
     product: {
       brand: string | null;
@@ -203,8 +204,15 @@ export class TelegramNotificationsService
       'TELEGRAM_ADMIN_URL',
       'https://abronshop.online/admin/inquiries',
     );
-    const price = inquiry.product?.price
-      ? `${Number(inquiry.product.price.toString()).toLocaleString('en-US')} ${inquiry.product.currency}`
+    // The price recorded with the inquiry (a flash deal price if one was running), else the product price.
+    const recorded = inquiry.listPrice ?? inquiry.product?.price ?? null;
+    const isFlash =
+      inquiry.listPrice != null &&
+      inquiry.product?.price != null &&
+      Number(inquiry.listPrice.toString()) < Number(inquiry.product.price.toString());
+    const price = recorded
+      ? `${Number(recorded.toString()).toLocaleString('en-US')} ${inquiry.currency || inquiry.product?.currency || ''}`.trim() +
+        (isFlash ? ' ⚡ flash deal price' : '')
       : 'Not set';
     const lines = [
       '🛍 New Abron Shop inquiry',
