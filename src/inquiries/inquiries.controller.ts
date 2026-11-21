@@ -1,3 +1,4 @@
+import { effectivePrice } from '../products/flash-deal';
 import {
   BadRequestException,
   Body,
@@ -41,10 +42,22 @@ export class InquiriesController {
     source: 'website' | 'admin',
     actor: string,
   ) {
-    const product = await this.prisma.product.findUniqueOrThrow({
+    const found = await this.prisma.product.findUniqueOrThrow({
       where: { id: dto.product_id },
-      select: { id: true, name: true, sizes: true, colorName: true, price: true, currency: true },
+      select: {
+        id: true,
+        name: true,
+        sizes: true,
+        colorName: true,
+        price: true,
+        currency: true,
+        flashPrice: true,
+        flashStartsAt: true,
+        flashEndsAt: true,
+      },
     });
+    // A running flash deal is the price the customer was shown, so it is the price we record.
+    const product = { ...found, price: effectivePrice(found) };
     const selectedSize = dto.selected_size?.trim() || null;
     if (product.sizes.length > 0 && (!selectedSize || !product.sizes.includes(selectedSize))) {
       throw new BadRequestException('Please select an available product size');

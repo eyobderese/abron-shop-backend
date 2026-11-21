@@ -184,6 +184,10 @@ model Product {
   variantSort    Int             @default(0) @map("variant_sort_order")
   price          Decimal?        @db.Decimal(10, 2)
   wasPrice       Decimal?        @map("was_price") @db.Decimal(10, 2)
+  /// Flash deal: a lower price that only applies between flashStartsAt (or now) and flashEndsAt.
+  flashPrice     Decimal?        @map("flash_price") @db.Decimal(10, 2)
+  flashStartsAt  DateTime?       @map("flash_starts_at") @db.Timestamptz(6)
+  flashEndsAt    DateTime?       @map("flash_ends_at") @db.Timestamptz(6)
   currency       ProductCurrency @default(ETB)
   sizeType       ProductSizeType @default(NONE) @map("size_type")
   sizes          String[]        @default([])
@@ -200,6 +204,7 @@ model Product {
   @@index([categoryId, createdAt(sort: Desc)])
   @@index([brand])
   @@index([inStock, createdAt(sort: Desc)])
+  @@index([flashEndsAt])
   @@map("products")
 }
 
